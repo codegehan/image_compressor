@@ -145,11 +145,22 @@ button:hover{
 }
 .alert-container{
     text-align: left;
-    transform: translate(280%, -50%);
-    position: relative;
+    transform: translate(280%, -80%);
+    opacity: 0;
+    position: absolute;
     background-color: lightblue;
     width: 270px;
+    border-radius: 20px;
+    transition: opacity 0.5s ease-in-out;
+}
+.alert-container.showAlert{
+    opacity: 1;
 }
 .alert-container .alert-content {
-    padding: 20px;
+    padding: 15px;
+    ;
+}
+.alert-container .alert-content h3{
+    font-size: 1.5rem;
+    margin-bottom: 5px;
 }
