@@ -21,7 +21,7 @@ body{
     height: 200px;
 }
 .main-body.adjust{
-    height: 280px;
+    height: 300px;
     animation: adjustBox 0.5s ease-in-out;
 }
 @keyframes adjustBox{
@@ -163,4 +163,18 @@ button:hover{
 .alert-container .alert-content h3{
     font-size: 1.5rem;
     margin-bottom: 5px;
+}
+.author{
+    font-size: 1.3rem;
+}
+
+
+@media only screen and (max-width: 600px){
+    .main-body{
+        width: 100%;
+        transform: translateX(25%);
+    }
+    .alert-container{
+        transform: translate(160%, -80%);
+    }
 }

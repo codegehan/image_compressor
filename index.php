@@ -17,6 +17,7 @@
     </div>
     <div class="header">
         <h1>Image Compressor</h1>
+        <span class="author">by codeGehan</span>
     </div>
     <form method="post" enctype="multipart/form-data">
         <label for="imageFile" class="img-file-label" id="imageFileInputText">Select a file</label>
