@@ -1,52 +1,19 @@
 <?php 
     include 'dbconn.php';
-    // to rize image width and height
-    function resizeImage($sourcePath, $width, $height) {
-        $info = getimagesize($sourcePath);
-        $mime = $info['mime'];
-        switch ($mime) {
-            case 'image/png':
-                $image = imagecreatefrompng($sourcePath);
-                break;
-            case 'image/jpeg':
-                $image = imagecreatefromjpeg($sourcePath);
-                break;
-            case 'image/gif':
-                $image = imagecreatefromgif($sourcePath);
-                break;
-            default:
-                $image = imagecreatefromjpeg($sourcePath);
-        }
-        $result = imagescale($image, $width, $height);
-        imagedestroy($image);
-        return $result;
-    }
-    // to compress image size
-    function compressImage($image, $destinationPath, $quality) 
-    {
-        $result = imagejpeg($image, $destinationPath, $quality);
-        imagedestroy($image);
-        return $result;
-    }
-    
+    include 'compress.php';
     if (isset($_POST["submit"])) {
+        // $sourceImage, $destination, $quality, $width, $height
         $sourceImage = $_FILES["imageFile"]["tmp_name"];
         $filename = $_FILES["imageFile"]["name"];
-        // set the heigth and width of the image
-        $width = 150;
-        $height = 150;
         $rand = rand(000, 999);
         $newfilename = $rand.$filename;
-        $resizedImage = resizeImage($sourceImage, $width, $height);
-        $destinationPath = "C:/Users/gelli/OneDrive/Desktop/$newfilename";
-        // set the quality of the image from 0 - 100
+        // $destination = "C:/Users/gelli/OneDrive/Desktop/$newfilename";
         $quality = 30;
-        compressImage($resizedImage, $destinationPath, $quality);
-
-        //Convert the image to base64
-        $compressedImg = file_get_contents($destinationPath);
-        // For the source image = data:{mime};base64, $compressedImg
+        $width = 150;
+        $height = 150;
+        $compressedImg = Image::Compress($sourceImage,$quality,$width,$height);
         $encodeBase64 = base64_encode($compressedImg);
+        //For the source image = data:{mime};base64, $compressedImg
         $query = "INSERT INTO tbl_image (img_data) VALUES (?)";
         $stmt = mysqli_prepare($conn, $query);
         mysqli_stmt_bind_param($stmt, 's', $encodeBase64);
@@ -61,89 +28,21 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://kit.fontawesome.com/2ee3da4ec4.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="style.css">
     <title>Image Compressor</title>
 </head>
-<style>
-    *{
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        font-family:monospace;
-    }
-    body{
-        position: absolute;
-        top: 0;
-        left: 0;
-        transform: translate(50%, 50%);
-        border: 2px solid grey;
-        border-radius: 50px;
-        text-align: center;
-        width: 50%;
-        height: 30%;
-        box-shadow: 2px 6px 8px rgb(0,0,0,0.4);
-    }
-    .header{
-        width: 100%;
-        text-align: center;
-        margin-top: 40px;
-    }
-    .header h1{
-        color: red;
-    }
-    form{
-        margin-top: 30px;
-    }
-    input{
-        border: 1px solid black;
-        border-radius: 10px;
-        padding: 10px;
-    }
-    button{
-        border: 1px solid black;
-        border-radius: 10px;
-        padding: 12px 30px;
-        background-color: green;
-        box-shadow: 0px 4px 8px rgb(0,0,0,0.4);
-        cursor: pointer;
-        color: #fff;
-        transition:  scale 0.2s ease-in-out;
-    }
-    button:hover{
-        background-color: darkgreen;
-        scale: 1.03;
-    }
-    .preview {
-        margin-top: 90px;
-        position: relative;
-    }
-    .preview .img-container img{
-        border-radius: 10px;
-        box-shadow: 2px 2px 8px rgb(0,0,0,0.4);
-        width: 20%;
-    }
-
-    .preview .img-container p:first-of-type{
-        padding-top: 10px;
-    }
-    .preview .img-container:last-of-type{
-        padding-top: 20px;
-    }
-    .preview i{
-        position: relative;
-        top: 30%;
-        padding-top: 20px;
-        font-size: 3rem;
-        text-align: center;
-    }
-</style>
-<body>
+<body class="main-body">
     <div class="header">
         <h1>Image Compressor</h1>
     </div>
     <form method="post" enctype="multipart/form-data">
-        <input type="file" name="imageFile" id="imageFile" accept="image/*" onchange="loadImage(event)">
-        <button type="submit" name="submit">Submit</button>
-        
+        <label for="imageFile" class="img-file-label" id="imageFileInputText">Select a file</label>
+        <input type="file" name="imageFile" id="imageFile" accept="image/*" onchange="loadImage(event)" hidden>
+        <button type="button" name="submit" class="submit-btn" onclick="showBase64Result()">Submit</button>
+        <div class="result-container" hidden>
+            <input type="text" id="result-input" disabled>
+            <button type="button" id="copy" onclick="copyToClipboard()">Copy to clipboard</button>
+        </div>
     </form>
     <div class="preview">
         <div class="img-container">
@@ -160,8 +59,14 @@
             <!-- <p class="image-type">image/jpg</p> -->
         </div>
     </div>
-
+    <div class="alert-container">
+        <div class="alert-content">
+            <h3>Success</h3>
+            <p>Copy to clipboard successfully</p>
+        </div>
+    </div>
     <script>
+         var imageSource = document.getElementById('imageFile');
         var loadImage = function(event) {
             var reader = new FileReader();
             reader.onload = function() {
@@ -169,13 +74,96 @@
                 var output2 = document.getElementById('imgTo');
                 var icon = document.getElementById('icon-arrow');
                 var imgfromsize = document.getElementById('imgFromSize');
+                var imageFileTextInput = document.getElementById('imageFileInputText');
+                var fileNameImgUploaded = event.target.files[0].name;
+                var imageFromFileSize = event.target.files[0].size;
+                
+                var forKB = imageFromFileSize / 1024;
+                var forMB = forKB / 1024;
+                var formattedSize;
+                if (forMB >= 1) {
+                    formattedSize = forMB.toFixed(2) + " MB";
+                } else {
+                    formattedSize = forKB.toFixed(2) + " KB";
+                }
                 output1.src = reader.result;
+                imageFileTextInput.innerText = fileNameImgUploaded;
+                imgfromsize.innerText = "File size: " + formattedSize;
                 icon.hidden = false;
                 output1.hidden = false;
                 output2.hidden = false;
+
+                if (imageSource.files.length > 0) {
+                    var file = imageSource.files[0];
+                    var formData = new FormData();
+                    formData.append('imageFile', file);
+
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', 'process.php', true);
+
+                    xhr.onload = function() {
+                        if (xhr.status === 200) {
+                            var base64String = xhr.responseText;
+                            var binaryData = atob(base64String);
+                            var imageSize = binaryData.length;
+                            var forKB = imageSize / 1024;
+                            var forMB = forKB / 1024;
+                            var displaySize;
+                            if (forMB >= 1){ 
+                                displaySize = forMB.toFixed(2) + " MB"; 
+                            } else { 
+                                displaySize = forKB.toFixed(2) + " KB"; 
+                            }
+                            output2.src = "data:image/jpeg;base64," + xhr.responseText;
+                            var imgToFileSize = document.getElementById("imgToSize");
+                            imgToFileSize.innerText = "File size: " + displaySize;
+                        }
+                    };
+                    xhr.send(formData);
+                }
             };
             reader.readAsDataURL(event.target.files[0]);
         };
+        function showBase64Result() {
+            if (imageSource.value != "")
+            {
+                var body = document.getElementsByClassName('main-body')[0];
+                var resultContainer = document.getElementsByClassName('result-container')[0];
+                var base64ResultInput = document.getElementById('result-input');
+
+                body.classList.add("adjust");
+                resultContainer.classList.add("show");
+                resultContainer.hidden = false;
+
+                if (imageSource.files.length > 0) {
+                    var file = imageSource.files[0];
+                    var formData = new FormData();
+                    formData.append('imageFile', file);
+
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', 'process.php', true);
+
+                    xhr.onload = function() {
+                        if (xhr.status === 200) {
+                            base64ResultInput.value = xhr.responseText;
+                        }
+                    };
+                    xhr.send(formData);
+                }
+            }
+            else
+            {
+                alert("Please select a file");
+            }
+            
+        }
+        function copyToClipboard(){
+            var inputToCopy = document.getElementById('result-input');
+            inputToCopy.select();
+            inputToCopy.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(inputToCopy.value);
+            alert('Text copied to clipboard ' + inputToCopy.value);
+        }
     </script>
 </body>
 </html>
